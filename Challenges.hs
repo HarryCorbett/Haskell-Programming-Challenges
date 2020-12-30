@@ -336,13 +336,70 @@ prettyPrintApp exp1 exp2                    = prettyPrintLam exp1 ++ " " ++ pret
 
 -- Challenge 4 --
 
+--data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read)
+--data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
+--               LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read)
+
 parseLamMacro :: String -> Maybe LamMacroExpr
-parseLamMacro string = case parse parseLamExpr string of
+parseLamMacro string = case parse lamMacroExpr string of
                           [(a,"")] -> Just a
                           _        -> Nothing
 
-parseLamExpr :: Parser LamMacroExpr
-parseLamExpr = 
+lamMacroExpr :: Parser LamMacroExpr
+lamMacroExpr = lamMacroExpr'' <|> lamMacroExpr'
+
+lamMacroExpr' :: Parser LamMacroExpr
+lamMacroExpr' = do LamDef [] <$> lamExpr
+
+lamMacroExpr'' :: Parser LamMacroExpr
+lamMacroExpr'' = do macros <- macroList
+                    symbol "in"
+                    LamDef macros <$> lamExpr
+
+macroList :: Parser [(String, LamExpr)]
+macroList = many macro
+
+macro :: Parser (String, LamExpr)
+macro = do symbol "def"
+           name <- upperString
+           symbol "="
+           e <- lamExpr
+           return (name, e)
+
+lamExpr :: Parser LamExpr
+lamExpr = lamAbs <|> lamVar <|> lamMacro
+--lamExpr = lamApp <|> lamAbs <|> lamVar <|> lamMacro
+
+lamMacro :: Parser LamExpr
+lamMacro = do LamMacro <$> upperString
+
+lamApp :: Parser LamExpr
+lamApp = do e1 <- lamExpr
+            symbol ""
+            LamApp e1 <$> lamExpr
+
+lamAbs :: Parser LamExpr
+--lamAbs = do symbol "\\"
+lamAbs = do symbol "?"
+            x <- idInt
+            symbol "->"
+            LamAbs x <$> lamExpr
+            
+idInt :: Parser Int
+idInt = do symbol "x"
+           natural
+
+lamVar :: Parser LamExpr
+lamVar = do symbol "x"
+            LamVar <$> natural
+
+-- Helpers
+upperString :: Parser String
+upperString = token upperString'
+
+upperString' :: Parser String
+upperString' = do many upper 
+
 
 
 -- Challenge 5
