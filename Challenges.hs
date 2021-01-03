@@ -354,7 +354,7 @@ lamMacroExpr' = do LamDef [] <$> lamExpr
 lamMacroExpr'' :: Parser LamMacroExpr
 lamMacroExpr'' = do macros <- macroList
                     symbol "in"
-                    LamDef macros <$> lamExpr
+                    LamDef macros <$> lamExpr'
 
 macroList :: Parser [(String, LamExpr)]
 macroList = many macro
@@ -367,16 +367,59 @@ macro = do symbol "def"
            return (name, e)
 
 lamExpr :: Parser LamExpr
-lamExpr = lamAbs <|> lamVar <|> lamMacro
---lamExpr = lamApp <|> lamAbs <|> lamVar <|> lamMacro
+lamExpr = bracketedExprExpr <|> bracketedExprExpr' <|> bracketedExpr <|> varExpr <|> macroExpr <|> lamAbs <|> lamVar <|> lamMacro 
 
-lamMacro :: Parser LamExpr
-lamMacro = do LamMacro <$> upperString
+--Ensures the lamExpr after "in" is not just a lamMacro
+lamExpr' :: Parser LamExpr
+lamExpr' = bracketedExprExpr <|> bracketedExprExpr' <|> bracketedExpr <|>  varExpr <|> macroExpr <|> lamAbs <|> lamVar
 
-lamApp :: Parser LamExpr
-lamApp = do e1 <- lamExpr
-            symbol ""
-            LamApp e1 <$> lamExpr
+terminalExpr :: Parser LamExpr
+terminalExpr = bracketedExpr <|> lamVar <|> lamMacro
+
+--Handles multiple expressions 
+expr' :: LamExpr -> Parser LamExpr
+expr' e = exprExpr' e <|> expr'' e
+
+--Takes expression, matches terminal expression
+expr'' :: LamExpr -> Parser LamExpr
+expr'' e = do LamApp e <$> terminalExpr
+
+--Matches a terminal expression followed by an expression
+exprExpr' :: LamExpr -> Parser LamExpr
+exprExpr' e = do e1 <- terminalExpr
+                 symbol ""
+                 expr' (LamApp e e1)
+
+bracketedExpr :: Parser LamExpr
+bracketedExpr = do symbol "("
+                   e <- lamExpr
+                   symbol ")"
+                   return e
+
+bracketedExprExpr :: Parser LamExpr
+bracketedExprExpr = do symbol "("
+                       e1 <- lamExpr
+                       symbol ""
+                       e2 <- lamExpr
+                       symbol ")"
+                       return (LamApp e1 e2)
+
+--Matches bracketed expression followed by another expression 
+bracketedExprExpr' :: Parser LamExpr
+bracketedExprExpr' = do e <- bracketedExpr
+                        symbol ""
+                        expr' e
+
+--Matches a variable followed by another expression
+varExpr :: Parser LamExpr
+varExpr = do e <- lamVar
+             symbol ""
+             expr' e
+
+macroExpr :: Parser LamExpr
+macroExpr = do e <- lamMacro
+               symbol ""
+               expr' e
 
 lamAbs :: Parser LamExpr
 --lamAbs = do symbol "\\"
@@ -393,13 +436,15 @@ lamVar :: Parser LamExpr
 lamVar = do symbol "x"
             LamVar <$> natural
 
+lamMacro :: Parser LamExpr
+lamMacro = do LamMacro <$> upperString
+
 -- Helpers
 upperString :: Parser String
-upperString = token upperString'
+upperString = do some upperChar
 
-upperString' :: Parser String
-upperString' = do many upper 
-
+upperChar :: Parser Char
+upperChar = sat isUpper
 
 
 -- Challenge 5
