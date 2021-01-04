@@ -1,9 +1,123 @@
 import Challenges
 import Parsing
 
+tests :: [(String, [(String,Bool)])]
 tests = 
-    [ ("Test 1: ")
+    [
+    ("Challenge 1",
+        [
+        ("Test 1: Looking for HASKELL, STRING ,STACK, MAIN, METHOD in a grid containing the words",
+        checkFoundWords (solveWordSearch c1Words1 c1Grid1) c1Solution1),
 
-    ]   
+        ("Test 2: Looking for BANANA, ORANGE, MELON, RASPBERRY, APPLE, PLUM, GRAPE in a grid containing the words",
+        checkFoundWords (solveWordSearch c1Words2 c1Grid2) c1Solution2),
 
-exGrid1'1 = [ "HAGNIRTSH" , "SACAGETAK", "GCSTACKEL","MGHKMILKI","EKNLETGCN","TNIRTLETE","IRAAHCLSR","MAMROSAGD","GIZKDDNRG" ] 
+        ("Test 3: Check that given no words to find in a grid, the empty list is returned",
+        checkFoundWords (solveWordSearch [] c1Grid1) [])
+        ]
+    ),
+
+    ("Challenge 2",
+        [
+        ("Test 1: Generate a random grid, solve it using the solver in challenge 1 and ensure all words are present in the grid exactly once",
+        False)
+        ]
+    ),
+
+    ("Challenge 3",
+        [
+        ("Test 1: Check 'LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))' pretty prints to '(\\x1 -> x1) \\x1 -> x1' ",
+        checkPrettyPrint (prettyPrint (LamDef [] (LamApp (LamAbs 1 (LamVar 1)) (LamAbs 1 (LamVar 1)))) ) "(\\x1 -> x1) \\x1 -> x1"  ),
+        
+        ("Test 2: Check 'LamDef [] (LamApp (LamAbs 1 (LamVar 1)) (LamAbs 1 (LamVar 1)))' pretty prints to '\\x1 -> x1 \\x1 -> x1' ",
+        checkPrettyPrint (prettyPrint (LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))) ) "\\x1 -> x1 \\x1 -> x1"),
+
+        ("Test 3: Check 'LamDef [ (\"F\", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro \"F\")))' pretty prints to 'def F = \\x1 -> x1 in \\x2 -> x2 F' ",
+        checkPrettyPrint (prettyPrint (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))) ) "def F = \\x1 -> x1 in \\x2 -> x2 F"),
+
+        ("Test 4: Check 'LamDef [ (\"F\", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))' pretty prints to 'def F = \\x1 -> x1 in \\x2 -> F x2' ",
+        checkPrettyPrint (prettyPrint (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))) ) "def F = \\x1 -> x1 in \\x2 -> F x2")
+        ]
+    ),
+
+    ("Challenge 4",
+        [
+        ("Test 1: Check parsing the expression 'x1 (x2 x3)' returns 'Just (LamDef [] (LamApp (LamVar 1) (LamApp(LamVar 2) (LamVar 3))))'",
+        checkLamMacroParser (parseLamMacro "x1 (x2 x3)") (Just (LamDef [] (LamApp (LamVar 1) (LamApp(LamVar 2) (LamVar 3))))) ),
+        
+        ("Test 2: Check parsing the expression 'x1 x2 F' returns 'Just (LamDef [] (LamApp (LamApp (LamVar 1) (LamVar 2)) (LamMacro \"F\"))' ",
+        checkLamMacroParser (parseLamMacro "x1 x2 F") (Just (LamDef [] (LamApp (LamApp (LamVar 1) (LamVar 2)) (LamMacro "F")))) ),
+
+        -- Need to solve issue with parsing \ before this will pass
+        -- Currently matching ? instead of \
+        ("Test 3: Check parsing the expression 'def F = \\x1 -> x1 in \\x2 -> x2 F' returns 'Just (LamDef [ (\"F\", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro \"F\"))))' ",
+        checkLamMacroParser (parseLamMacro "def F = \\x1 -> x1 in \\x2 -> x2 F") (Just (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F"))))) )
+        ]
+    )
+    ]
+
+main :: IO ()
+main = do putStrLn ""
+          testEachChallenge tests
+
+testEachChallenge :: [(String, [(String,Bool)])] -> IO ()
+testEachChallenge [] = putStr "" 
+testEachChallenge ((c,tests):cs) = do putStrLn ("-- " ++ c ++ " -- " ++ getChallengeScore tests ++ " --")
+                                      testChallenge tests
+                                      putStrLn ""
+                                      testEachChallenge cs
+
+testChallenge :: [(String, Bool)] -> IO ()
+testChallenge [] = putStr  ""
+testChallenge ((message, False) : ts) = do putStr "Test Failed: "
+                                           putStrLn message
+                                           testChallenge ts
+testChallenge ((message, True) : ts)  = do  putStr "Test Passed: "
+                                            putStrLn message
+                                            testChallenge ts
+
+getChallengeScore :: [(String, Bool)] -> String
+getChallengeScore cs = "Passed " ++ show (length [(string, bool) | (string, bool) <- cs , bool]) ++ " out of " ++ show (length cs) ++ " tests"
+
+
+-- Challenge 1 output checker
+checkFoundWords :: [ (String,Maybe Placement) ] -> [ (String,Maybe Placement) ] -> Bool
+checkFoundWords x y = x == y
+
+-- Challenge 2 output checker 
+checkGeneration :: [ (String,Maybe Placement) ] -> Bool
+checkGeneration [] = True
+checkGeneration (x:xs) | snd x == Nothing = False
+                       | otherwise = checkGeneration xs
+
+createAndSolveCheck :: [ String ] -> Double -> IO [ (String, Maybe Placement) ]
+createAndSolveCheck words maxDensity = do g <- createWordSearch words maxDensity
+                                          let soln = solveWordSearch words g
+                                          printGrid g
+                                          return soln
+
+printGrid :: WordSearchGrid -> IO ()
+printGrid [] = return ()
+printGrid (w:ws) = do putStrLn w
+                      printGrid ws
+
+-- Challenge 3 output checker
+checkPrettyPrint :: String -> String -> Bool
+checkPrettyPrint x y = x == y
+
+-- Challege 4 output checker
+checkLamMacroParser :: Maybe LamMacroExpr -> Maybe LamMacroExpr -> Bool 
+checkLamMacroParser x y = x == y
+                                     
+
+-- Challenge 1 test varialbes
+c1Grid1 = [ "HAGNIRTSH" , "SACAGETAK", "GCSTACKEL","MGHKMILKI","EKNLETGCN","TNIRTLETE","IRAAHCLSR","MAMROSAGD","GIZKDDNRG" ] 
+c1Words1 = [ "HASKELL","STRING","STACK","MAIN","METHOD"]
+c1Solution1 = [("HASKELL",Just((0,0),DownForward)),("STRING",Just((7,0),Back)),("STACK",Just((2,2),Forward)),("MAIN",Just((2,7),Up)),("METHOD",Just((4,3),Down))]
+
+c1Grid2 = ["ROBREUMBR","AURPEPSAN","UNLALMSEE","YGAUNPYYP","NLMNBGENA","NBLEALEOR","ALRYPBBLG","NREPBEBEP","YGAYAROMR"]
+c1Words2 = [ "BANANA", "ORANGE", "MELON", "RASPBERRY","APPLE","PLUM","GRAPE" ]
+c1Solution2 = [("BANANA",Just ((5,6),UpBack)),("ORANGE",Just ((1,0),DownForward)),("MELON",Just ((7,8),Up)),("RASPBERRY",Just ((8,0),DownBack)),("APPLE",Just ((2,8),UpForward)),("PLUM",Just ((5,1),DownBack)),("GRAPE",Just ((8,6),Up))]
+
+-- Challenge 2 variables
+c2Words1 = [ "HELLO" , "WORLD" , "HASKELL" , "PUZZLE"]
