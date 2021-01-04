@@ -422,8 +422,7 @@ macroExpr = do e <- lamMacro
                expr' e
 
 lamAbs :: Parser LamExpr
---lamAbs = do symbol "\\"
-lamAbs = do symbol "?"
+lamAbs = do symbol "\\"
             x <- idInt
             symbol "->"
             LamAbs x <$> lamExpr

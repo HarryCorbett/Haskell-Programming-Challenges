@@ -40,7 +40,7 @@ tests =
         ]
     ),
 
-    ("Challenge 4",
+    ("Challenge 4 (\\'s suitably escaped on input)",
         [
         ("Test 1: Check parsing the expression 'x1 (x2 x3)' returns 'Just (LamDef [] (LamApp (LamVar 1) (LamApp(LamVar 2) (LamVar 3))))'",
         checkLamMacroParser (parseLamMacro "x1 (x2 x3)") (Just (LamDef [] (LamApp (LamVar 1) (LamApp(LamVar 2) (LamVar 3))))) ),
@@ -48,10 +48,17 @@ tests =
         ("Test 2: Check parsing the expression 'x1 x2 F' returns 'Just (LamDef [] (LamApp (LamApp (LamVar 1) (LamVar 2)) (LamMacro \"F\"))' ",
         checkLamMacroParser (parseLamMacro "x1 x2 F") (Just (LamDef [] (LamApp (LamApp (LamVar 1) (LamVar 2)) (LamMacro "F")))) ),
 
-        -- Need to solve issue with parsing \ before this will pass
-        -- Currently matching ? instead of \
         ("Test 3: Check parsing the expression 'def F = \\x1 -> x1 in \\x2 -> x2 F' returns 'Just (LamDef [ (\"F\", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro \"F\"))))' ",
-        checkLamMacroParser (parseLamMacro "def F = \\x1 -> x1 in \\x2 -> x2 F") (Just (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F"))))) )
+        checkLamMacroParser (parseLamMacro "def F = \\x1 -> x1 in \\x2 -> x2 F") (Just (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F"))))) ),
+
+        ("Test 4: Check parsing the expression 'def F = \\x1 -> x1 (def G = \\x1 -> x1 in x1) in \\x2 -> x2' returns 'Nothing' ",
+        checkLamMacroParser (parseLamMacro "def F = \\x1 -> x1 (def G = \\x1 -> x1 in x1) in \\x2 -> x2") Nothing ),
+
+        ("Test 5: Check parsing the expression 'def F = \\x1 -> x1 in def F = \\x2 -> x2 x1 in x1' returns 'Nothing' ",
+        checkLamMacroParser (parseLamMacro "def F = \\x1 -> x1 in def F = \\x2 -> x2 x1 in x1") Nothing ),
+
+        ("Test 6: Check parsing the expression 'def F = x1 in F' returns 'Nothing' ",
+        checkLamMacroParser (parseLamMacro "def F = x1 in F") Nothing )
         ]
     )
     ]
