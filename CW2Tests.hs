@@ -1,5 +1,6 @@
 import Challenges
 import Parsing
+import Data.Maybe
 
 tests :: [(String, [(String,Bool)])]
 tests = 
@@ -17,11 +18,8 @@ tests =
         ]
     ),
 
-    ("Challenge 2",
-        [
-        ("Test 1: Generate a random grid, solve it using the solver in challenge 1 and ensure all words are present in the grid exactly once",
-        False)
-        ]
+    ("Challenge 2 - Tested seperately due to type restrictions",
+        []
     ),
 
     ("Challenge 3",
@@ -63,9 +61,24 @@ tests =
     )
     ]
 
+chal2Tests :: [(String, [String], Double)]
+chal2Tests = 
+    [
+        ("Test 1: Generate and solve a grid containing the words HASKELL, STRING, STACK, JUST, MAIN, METHOD and ensure it contains each of them exactly once",
+        ["HASKELL", "STRING", "STACK", "JUST", "MAIN", "METHOD"],
+        0.3),
+
+        ("Test 2: Generate and solve a very large grid containing the words ALDER, COTTONWOOD, PINE, APPLE, CYPRESS, POPLAR, ASH and ensure it contains each of them exactly once",
+        ["ALDER", "COTTONWOOD", "PINE", "APPLE","CYPRESS","POPLAR","ASH"],
+        0.01)
+    ]
+
 main :: IO ()
 main = do putStrLn ""
           testEachChallenge tests
+          putStrLn "-- Challenge 2 --"
+          testChallenge2 chal2Tests
+
 
 testEachChallenge :: [(String, [(String,Bool)])] -> IO ()
 testEachChallenge [] = putStr "" 
@@ -83,9 +96,17 @@ testChallenge ((message, True) : ts)  = do  putStr "Test Passed: "
                                             putStrLn message
                                             testChallenge ts
 
+-- Seperate tester for challenge 2 due to it returning an IO type
+testChallenge2 :: [(String, [String], Double)] -> IO ()
+testChallenge2 [] = putStr ""
+testChallenge2 (( message, words, density) : ts) = do result <- createAndSolveCheck words density
+                                                      putStr result
+                                                      putStrLn message
+                                                      testChallenge2 ts
+                                                      
+
 getChallengeScore :: [(String, Bool)] -> String
 getChallengeScore cs = "Passed " ++ show (length [(string, bool) | (string, bool) <- cs , bool]) ++ " out of " ++ show (length cs) ++ " tests"
-
 
 -- Challenge 1 output checker
 checkFoundWords :: [ (String,Maybe Placement) ] -> [ (String,Maybe Placement) ] -> Bool
@@ -94,19 +115,16 @@ checkFoundWords x y = x == y
 -- Challenge 2 output checker 
 checkGeneration :: [ (String,Maybe Placement) ] -> Bool
 checkGeneration [] = True
-checkGeneration (x:xs) | snd x == Nothing = False
+checkGeneration (x:xs) | isNothing (snd x) = False
                        | otherwise = checkGeneration xs
 
-createAndSolveCheck :: [ String ] -> Double -> IO [ (String, Maybe Placement) ]
+createAndSolveCheck :: [ String ] -> Double -> IO String
 createAndSolveCheck words maxDensity = do g <- createWordSearch words maxDensity
                                           let soln = solveWordSearch words g
-                                          printGrid g
-                                          return soln
-
-printGrid :: WordSearchGrid -> IO ()
-printGrid [] = return ()
-printGrid (w:ws) = do putStrLn w
-                      printGrid ws
+                                          let check = checkGeneration soln
+                                          let b = (length soln == length words) && check in
+                                              if b then return "Test Passed: "
+                                                else return "Test failed: "
 
 -- Challenge 3 output checker
 checkPrettyPrint :: String -> String -> Bool

@@ -268,7 +268,7 @@ findTempChars grid = [ (x,y) | (y,line) <- zip [0..] grid, x <- elemIndices '-' 
 createWordSearch :: [ String ] -> Double -> IO WordSearchGrid
 createWordSearch [] _ = error "No Strings given"
 createWordSearch _ x             | x < 0 || x > 1 = error "Given density is not between 0 and 1"
-createWordSearch strings density | calculateGridSize strings density < longestStringLen strings = error "Given density cannot produce a large enough grid for strings"
+createWordSearch strings density | calculateGridSize strings density < longestStringLen strings = error "Given density cannot produce a large enough grid for the given strings"
                                  | otherwise = do wordGrid <- insertWords (makeEmptyGrid (calculateGridSize strings density)) strings
                                                   replaceTempChars (getCharacterList strings) strings (findTempChars wordGrid) wordGrid
 
@@ -335,10 +335,6 @@ prettyPrintApp exp1 exp2                    = prettyPrintLam exp1 ++ " " ++ pret
 --ex3'4 = (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))) --> def F = \x1-> x1 in \x2 -> F x2"
 
 -- Challenge 4 --
-
---data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read)
---data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
---               LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read)
 
 parseLamMacro :: String -> Maybe LamMacroExpr
 parseLamMacro string = case parse lamMacroExpr string of
@@ -448,8 +444,47 @@ upperChar = sat isUpper
 
 -- Challenge 5
 
+--data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read)
+--data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
+--               LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read)
+
 cpsTransform :: LamMacroExpr -> LamMacroExpr
-cpsTransform _ = LamDef [] (LamVar 0)
+cpsTransform (LamDef [] expr) = LamDef [] (cpsTransformExpr expr ((nextNumLam expr 1) +1))
+cpsTransform (LamDef xs expr) = let transformedList = cpsTransformMacros xs (nextNumMacro (LamDef xs expr) 1) in
+                                LamDef transformedList (cpsTransformExpr expr ((nextNumMacro (LamDef transformedList expr) 1) +1))
+
+cpsTransformMacros :: [ (String, LamExpr) ] -> Int -> [ (String, LamExpr) ]
+cpsTransformMacros [(s,expr)] i = [(s,cpsTransformExpr expr ((nextNumLam expr i) +1))]
+cpsTransformMacros ((s,expr):xs) i = let n = (nextNumLam expr i) + 1 in
+                                     let transformedExpr = cpsTransformExpr expr n in
+                                     (s,transformedExpr) : cpsTransformMacros xs (nextNumLam transformedExpr n)
+
+nextNumMacro :: LamMacroExpr -> Int -> Int
+nextNumMacro (LamDef [] e) i = nextNumLam e i
+nextNumMacro (LamDef xs e) i = let a = nextNumLam (snd(last xs)) i in
+                               let b = nextNumLam e i in
+                               if a >= b then a
+                               else b
+
+nextNumLam :: LamExpr -> Int -> Int
+nextNumLam (LamApp e1 e2) i = let a = nextNumLam e1 i in
+                              let b = nextNumLam e2 i in
+                              if a >= b then a
+                              else b
+nextNumLam (LamAbs num e) i = let a = nextNumLam e i in
+                              if a >= num then a
+                              else num
+nextNumLam (LamVar num) i   = if i >= num then i
+                              else num
+nextNumLam _ i              = i
+
+cpsTransformExpr :: LamExpr -> Int -> LamExpr
+cpsTransformExpr (LamApp e1 e2) i = let a  = cpsTransformExpr e1 (i+3) in
+                                    let an = nextNumLam a (i+3) in
+                                    LamAbs i (LamApp a (LamAbs (i+1) (LamApp (cpsTransformExpr e2 (an+1)) (LamAbs (i+2) (LamApp (LamApp (LamVar (i+1)) (LamVar (i+2))) (LamVar i) )))))
+cpsTransformExpr (LamAbs x e) i   = LamAbs i (LamApp (LamVar i) (LamAbs x (cpsTransformExpr e (i+1))))
+cpsTransformExpr (LamVar x) i     = LamAbs i (LamApp (LamVar i) (LamVar x))
+cpsTransformExpr (LamMacro s) i   = LamMacro s
 
 -- Examples in the instructions
 exId =  LamAbs 1 (LamVar 1)
