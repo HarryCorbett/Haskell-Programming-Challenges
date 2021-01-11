@@ -335,12 +335,13 @@ prettyPrintApp exp1 exp2                    = prettyPrintLam exp1 ++ " " ++ pret
 --ex3'4 = (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))) --> def F = \x1-> x1 in \x2 -> F x2"
 
 -- Challenge 4 --
-
+--Parse the LamMacroExpr
 parseLamMacro :: String -> Maybe LamMacroExpr
 parseLamMacro string = case parse lamMacroExpr string of
                           [(a,"")] -> Just a
                           _        -> Nothing
 
+--Match lamMacroExprs 
 lamMacroExpr :: Parser LamMacroExpr
 lamMacroExpr = lamMacroExpr'' <|> lamMacroExpr'
 
@@ -355,6 +356,7 @@ lamMacroExpr'' = do macros <- macroList
 macroList :: Parser [(String, LamExpr)]
 macroList = many macro
 
+--Matches a macro definition
 macro :: Parser (String, LamExpr)
 macro = do symbol "def"
            name <- upperString
@@ -362,6 +364,7 @@ macro = do symbol "def"
            e <- lamExpr
            return (name, e)
 
+--Matches lambda exressions
 lamExpr :: Parser LamExpr
 lamExpr = bracketedExprExpr <|> bracketedExprExpr' <|> bracketedExpr <|> varExpr <|> macroExpr <|> lamAbs <|> lamVar <|> lamMacro 
 
@@ -369,6 +372,7 @@ lamExpr = bracketedExprExpr <|> bracketedExprExpr' <|> bracketedExpr <|> varExpr
 lamExpr' :: Parser LamExpr
 lamExpr' = bracketedExprExpr <|> bracketedExprExpr' <|> bracketedExpr <|>  varExpr <|> macroExpr <|> lamAbs <|> lamVar
 
+--Matches terminal expressions 
 terminalExpr :: Parser LamExpr
 terminalExpr = bracketedExpr <|> lamVar <|> lamMacro
 
@@ -386,12 +390,14 @@ exprExpr' e = do e1 <- terminalExpr
                  symbol ""
                  expr' (LamApp e e1)
 
+--Matches a bracketed expression
 bracketedExpr :: Parser LamExpr
 bracketedExpr = do symbol "("
                    e <- lamExpr
                    symbol ")"
                    return e
 
+--Matches two expression in a bracket
 bracketedExprExpr :: Parser LamExpr
 bracketedExprExpr = do symbol "("
                        e1 <- lamExpr
@@ -412,25 +418,30 @@ varExpr = do e <- lamVar
              symbol ""
              expr' e
 
+--Matches a LamMacro
 macroExpr :: Parser LamExpr
 macroExpr = do e <- lamMacro
                symbol ""
                expr' e
 
+--Macthes a lambda abstraction 
 lamAbs :: Parser LamExpr
 lamAbs = do symbol "\\"
             x <- idInt
             symbol "->"
             LamAbs x <$> lamExpr
             
+--Matched an Int
 idInt :: Parser Int
 idInt = do symbol "x"
            natural
 
+--Macthes a variable
 lamVar :: Parser LamExpr
 lamVar = do symbol "x"
             LamVar <$> natural
 
+--Matches a macro name
 lamMacro :: Parser LamExpr
 lamMacro = do LamMacro <$> upperString
 
@@ -443,22 +454,19 @@ upperChar = sat isUpper
 
 
 -- Challenge 5
-
---data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read)
---data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
---               LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read)
-
 cpsTransform :: LamMacroExpr -> LamMacroExpr
-cpsTransform (LamDef [] expr) = LamDef [] (cpsTransformExpr expr ((nextNumLam expr 1) +1))
+cpsTransform (LamDef [] expr) = LamDef [] (cpsTransformExpr expr (nextNumLam expr 1 +1))
 cpsTransform (LamDef xs expr) = let transformedList = cpsTransformMacros xs (nextNumMacro (LamDef xs expr) 1) in
-                                LamDef transformedList (cpsTransformExpr expr ((nextNumMacro (LamDef transformedList expr) 1) +1))
+                                LamDef transformedList (cpsTransformExpr expr (nextNumMacro (LamDef transformedList expr) 1 +1))
 
+--Transform the expression on each macro definition to CPS
 cpsTransformMacros :: [ (String, LamExpr) ] -> Int -> [ (String, LamExpr) ]
-cpsTransformMacros [(s,expr)] i = [(s,cpsTransformExpr expr ((nextNumLam expr i) +1))]
-cpsTransformMacros ((s,expr):xs) i = let n = (nextNumLam expr i) + 1 in
+cpsTransformMacros [(s,expr)] i = [(s,cpsTransformExpr expr (nextNumLam expr i +1))]
+cpsTransformMacros ((s,expr):xs) i = let n = nextNumLam expr i + 1 in
                                      let transformedExpr = cpsTransformExpr expr n in
                                      (s,transformedExpr) : cpsTransformMacros xs (nextNumLam transformedExpr n)
 
+--Calculate the current highest number used for variables
 nextNumMacro :: LamMacroExpr -> Int -> Int
 nextNumMacro (LamDef [] e) i = nextNumLam e i
 nextNumMacro (LamDef xs e) i = let a = nextNumLam (snd(last xs)) i in
@@ -478,6 +486,7 @@ nextNumLam (LamVar num) i   = if i >= num then i
                               else num
 nextNumLam _ i              = i
 
+--Transform an expression to CPS
 cpsTransformExpr :: LamExpr -> Int -> LamExpr
 cpsTransformExpr (LamApp e1 e2) i = let a  = cpsTransformExpr e1 (i+3) in
                                     let an = nextNumLam a (i+3) in
@@ -497,13 +506,45 @@ ex5'4 = (LamDef [ ("F", exId) ] (LamApp (LamMacro "F") (LamMacro "F")))
 -- Challenge 6
 
 innerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
-innerRedn1 _ = Nothing
+innerRedn1 expr = Nothing
+
+eval :: LamExpr -> LamExpr
+eval expr | not (null (generateRedexs expr)) = leftEval expr
+          | otherwise = expr
+
+generateRedexs :: LamExpr -> [LamExpr]
+generateRedexs LamVar{} = []
+generateRedexs (LamAbs _ e) = generateRedexs e
+generateRedexs e@(LamApp (LamAbs _ e1) e2) = generateRedexs e1 ++ generateRedexs e2 ++ [e]
+generateRedexs (LamApp e1 e2) = generateRedexs e1
+
+leftEval :: LamExpr -> LamExpr
+leftEval v@LamVar{} = v
+leftEval (LamAbs x e) = LamAbs x (leftEval e)
+leftEval (LamApp (LamAbs x e1) e2) = reduce e1 x e2
+leftEval (LamApp e1 e2) = LamApp (leftEval e1) e2
+
+checkFree :: LamExpr -> Int -> Bool
+checkFree (LamVar x) y = x == y
+checkFree (LamAbs x e) y | x == y = False 
+                         | otherwise = checkFree e y
+checkFree (LamApp e1 e2) x = checkFree e1 x || checkFree e2 x
+
+reduce :: LamExpr -> Int -> LamExpr -> LamExpr
+reduce (LamVar a) b e    | a == b = e
+reduce (LamVar a) b _    | a /= b = LamVar a
+reduce (LamAbs a e1) b e | a /= b && not (checkFree e a) = LamAbs a (reduce e1 b e)
+reduce (LamAbs a e1) b e | a /= b && checkFree e a = reduce (LamAbs c (reduce e1 a (LamVar c))) b e where c = a+1000
+reduce (LamAbs a e1) b _ | a == b = LamAbs a e1
+reduce (LamApp e1 e2) b e = LamApp (reduce e1 b e) (reduce e2 b e)
+
 
 outerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
 outerRedn1 _ = Nothing
 
 compareInnerOuter :: LamMacroExpr -> Int -> (Maybe Int,Maybe Int,Maybe Int,Maybe Int)
-compareInnerOuter _ _ = (Nothing,Nothing,Nothing,Nothing) 
+compareInnerOuter expr limit = (Nothing, Nothing, Nothing, Nothing) 
+
 
 -- Examples in the instructions
 

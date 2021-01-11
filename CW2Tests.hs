@@ -58,6 +58,13 @@ tests =
         ("Test 6: Check parsing the expression 'def F = x1 in F' returns 'Nothing' ",
         checkLamMacroParser (parseLamMacro "def F = x1 in F") Nothing )
         ]
+    ),
+
+        ("Challenge 5",
+        [
+        ("Test 1: Check converting '(LamApp (LamVar 1) (LamVar 2))' returns a correct CPS expression",
+        cpsTransformChecker (cpsTransform (LamDef [] (LamApp (LamVar 1) (LamVar 2)))) (LamDef [] (LamApp (LamVar 1) (LamVar 2))) )
+        ]
     )
     ]
 
@@ -133,6 +140,10 @@ checkPrettyPrint x y = x == y
 -- Challege 4 output checker
 checkLamMacroParser :: Maybe LamMacroExpr -> Maybe LamMacroExpr -> Bool 
 checkLamMacroParser x y = x == y
+
+-- Challenge 5 checker
+cpsTransformChecker :: LamMacroExpr -> LamMacroExpr -> Bool
+cpsTransformChecker x y = x == y
                                      
 
 -- Challenge 1 test varialbes
