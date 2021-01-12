@@ -505,24 +505,48 @@ ex5'4 = (LamDef [ ("F", exId) ] (LamApp (LamMacro "F") (LamMacro "F")))
 
 -- Challenge 6
 
-innerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
-innerRedn1 expr = Nothing
+convert :: Maybe LamExpr -> LamExpr
+convert (Just expr) = expr
 
-eval :: LamExpr -> LamExpr
-eval expr | not (null (generateRedexs expr)) = leftEval expr
-          | otherwise = expr
+convertList :: [(String, Maybe LamExpr)] -> [(String, LamExpr)]
+convertList [(s,expr)]      = [(s, convert expr)]
+convertList ((s,expr) : xs) = (s, convert expr) : convertList xs
+
+innerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
+innerRedn1 (LamDef [] expr) = let evalExpr = eval expr in
+                                  if isNothing evalExpr then Nothing
+                                    else Just (LamDef [] (convert evalExpr))
+innerRedn1 (LamDef xs expr) = let evalExpr = eval expr in
+                              let evaldDefs = evalDefs xs in
+                                  if isNothing evalExpr || checkDefsForNothing evaldDefs then Nothing
+                                    else Just (LamDef (convertList evaldDefs) (convert evalExpr))
+
+evalDefs :: [(String, LamExpr)] -> [(String, Maybe LamExpr)]
+evalDefs [(s,expr)]      = [(s, eval expr)]
+evalDefs ((s,expr) : xs) = (s, eval expr) : evalDefs xs
+
+checkDefsForNothing :: [(String, Maybe LamExpr)] -> Bool 
+checkDefsForNothing [] = False
+checkDefsForNothing ((_,expr) : xs) | isNothing expr = True
+                                    | otherwise = checkDefsForNothing xs
+
+eval :: LamExpr -> Maybe LamExpr
+eval expr | not (null (generateRedexs expr)) = Just (leftEval expr)
+          | otherwise = Nothing
 
 generateRedexs :: LamExpr -> [LamExpr]
 generateRedexs LamVar{} = []
 generateRedexs (LamAbs _ e) = generateRedexs e
 generateRedexs e@(LamApp (LamAbs _ e1) e2) = generateRedexs e1 ++ generateRedexs e2 ++ [e]
 generateRedexs (LamApp e1 e2) = generateRedexs e1
+generateRedexs LamMacro{} = []
 
 leftEval :: LamExpr -> LamExpr
 leftEval v@LamVar{} = v
 leftEval (LamAbs x e) = LamAbs x (leftEval e)
 leftEval (LamApp (LamAbs x e1) e2) = reduce e1 x e2
 leftEval (LamApp e1 e2) = LamApp (leftEval e1) e2
+leftEval (LamMacro e) = LamMacro e
 
 checkFree :: LamExpr -> Int -> Bool
 checkFree (LamVar x) y = x == y
@@ -531,13 +555,23 @@ checkFree (LamAbs x e) y | x == y = False
 checkFree (LamApp e1 e2) x = checkFree e1 x || checkFree e2 x
 
 reduce :: LamExpr -> Int -> LamExpr -> LamExpr
-reduce (LamVar a) b e    | a == b = e
-reduce (LamVar a) b _    | a /= b = LamVar a
-reduce (LamAbs a e1) b e | a /= b && not (checkFree e a) = LamAbs a (reduce e1 b e)
-reduce (LamAbs a e1) b e | a /= b && checkFree e a = reduce (LamAbs c (reduce e1 a (LamVar c))) b e where c = a+1000
-reduce (LamAbs a e1) b _ | a == b = LamAbs a e1
-reduce (LamApp e1 e2) b e = LamApp (reduce e1 b e) (reduce e2 b e)
+reduce (LamVar x) y e    | x == y = e
+reduce (LamVar x) y _    | x /= y = LamVar x
+reduce (LamAbs x e1) y e | x /= y && not (checkFree e x) = LamAbs x (reduce e1 x e)
+reduce (LamAbs x e1) y e | x /= y && checkFree e x = let c = rename x e1 in 
+                                                         reduce (LamAbs c (reduce e1 x (LamVar c))) y e 
+reduce (LamAbs x e1) y _ | x == y = LamAbs x e1
+reduce (LamApp e1 e2) y e = LamApp (reduce e1 y e) (reduce e2 y e)
 
+rename :: Int -> LamExpr -> Int
+rename x e | checkFree e (x + 100) = rename (x + 100) e
+           | otherwise = x + 100
+
+countReductions :: (LamExpr -> LamExpr) -> LamExpr -> Int -> Int -> Maybe Int
+countReductions method startExpr bound count = let currentExpr = method startExpr in                                                    
+                                                          if count >= bound && startExpr /= currentExpr then Nothing
+                                                          else if startExpr == currentExpr then Just count
+                                                               else countReductions method currentExpr bound (count + 1) 
 
 outerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
 outerRedn1 _ = Nothing
