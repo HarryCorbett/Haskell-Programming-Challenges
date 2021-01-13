@@ -74,6 +74,13 @@ tests =
         ("Test 4: Check converting 'LamDef [ (\"F\", LamAbs 1 (LamVar 1)) ] (LamApp (LamMacro \"F\") (LamMacro \"F\"))' returns a correct CPS expression",
         equalChecker (cpsTransform (ex5'4)) (LamDef [("F", LamAbs 2 (LamApp (LamVar 2) (LamAbs 1 (LamAbs 3 (LamApp (LamVar 3) (LamVar 1))))))] (LamAbs 4 (LamApp (LamMacro "F") (LamAbs 5 (LamApp (LamMacro "F") (LamAbs 6 (LamApp (LamApp (LamVar 5) (LamVar 6)) (LamVar 4)))))))) )
         ]
+    ),
+
+    ("Challenge 6",
+        [
+        ("Test 1: Check converting '(LamApp (LamVar 1) (LamVar 2))' returns a correct CPS expression",
+        equalChecker (cpsTransform (LamDef [] ex5'1)) (LamDef [] (LamAbs 3 (LamApp (LamAbs 6 (LamApp (LamVar 6) (LamVar 1))) (LamAbs 4 (LamApp (LamAbs 7 (LamApp (LamVar 7) (LamVar 2))) (LamAbs 5 (LamApp (LamApp (LamVar 4) (LamVar 5)) (LamVar 3)))))))) )
+        ]
     )
     ]
 

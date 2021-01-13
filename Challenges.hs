@@ -130,7 +130,7 @@ exWords1'2 = [ "BANANA", "ORANGE", "MELON", "RASPBERRY","APPLE","PLUM","GRAPE" ]
 
 -- Challenge 2 --
 
---Removes duplicate characters from character list
+--Removes duplicate values from a list
 removeDuplicates :: Eq a => [a] -> [a] -> [a]
 removeDuplicates [] _ = []
 removeDuplicates (x:xs) list | x `elem` list = removeDuplicates xs list
@@ -147,7 +147,7 @@ calculateGridSize strings density = floor(sqrt (fromIntegral (length (intercalat
 
 --Choose a random value from the given list
 chooseRandomFromList :: [a] -> IO a
-chooseRandomFromList xs = randomRIO (0, length xs - 1) <&> (xs !!)
+chooseRandomFromList xs = (xs !!) <$> randomRIO (0, length xs - 1)
 
 -- Create a grid of consisting of only '-' of size n x n
 makeEmptyGrid :: Int -> WordSearchGrid
@@ -248,6 +248,7 @@ isValidCharacter [] grid pos = True
 isValidCharacter (x:xs) grid pos | isNothing (snd (searchForWordAtPosition x grid pos)) && isNothing (snd (searchForWordAtPosition (reverse x) grid pos)) = isValidCharacter xs grid pos
                                  | otherwise = False
 
+--Replace temporary characters in the grid
 replaceTempChars :: [Char] -> [String] -> [(Int, Int)] -> WordSearchGrid -> IO WordSearchGrid
 replaceTempChars chars words [] grid = return grid
 replaceTempChars chars words (x:xs) grid = do randomChar <- chooseRandomFromList chars
@@ -504,7 +505,7 @@ ex5'4 = (LamDef [ ("F", exId) ] (LamApp (LamMacro "F") (LamMacro "F")))
 
 
 -- Challenge 6
-
+-- Extract expressions from maybe expression
 convert :: Maybe LamExpr -> LamExpr
 convert (Just expr) = expr
 
@@ -512,6 +513,7 @@ convertList :: [(String, Maybe LamExpr)] -> [(String, LamExpr)]
 convertList [(s,expr)]      = [(s, convert expr)]
 convertList ((s,expr) : xs) = (s, convert expr) : convertList xs
 
+-- Perform leftmost innermost reduction
 innerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
 innerRedn1 (LamDef [] expr) = let evalExpr = eval expr in
                                   if isNothing evalExpr then Nothing
@@ -521,6 +523,7 @@ innerRedn1 (LamDef xs expr) = let evalExpr = eval expr in
                                   if isNothing evalExpr || checkDefsForNothing evaldDefs then Nothing
                                     else Just (LamDef (convertList evaldDefs) (convert evalExpr))
 
+-- Attempt to evaluate expressions in macros
 evalDefs :: [(String, LamExpr)] -> [(String, Maybe LamExpr)]
 evalDefs [(s,expr)]      = [(s, eval expr)]
 evalDefs ((s,expr) : xs) = (s, eval expr) : evalDefs xs
@@ -530,10 +533,12 @@ checkDefsForNothing [] = False
 checkDefsForNothing ((_,expr) : xs) | isNothing expr = True
                                     | otherwise = checkDefsForNothing xs
 
+-- return nothing if there is no possible reduction
 eval :: LamExpr -> Maybe LamExpr
 eval expr | not (null (generateRedexs expr)) = Just (leftEval expr)
           | otherwise = Nothing
 
+-- Gnerate a list of Redexs appearing in a LamExpr
 generateRedexs :: LamExpr -> [LamExpr]
 generateRedexs LamVar{} = []
 generateRedexs (LamAbs _ e) = generateRedexs e
@@ -541,32 +546,36 @@ generateRedexs e@(LamApp (LamAbs _ e1) e2) = generateRedexs e1 ++ generateRedexs
 generateRedexs (LamApp e1 e2) = generateRedexs e1
 generateRedexs LamMacro{} = []
 
+-- Perform innermost leftmost evaluation
 leftEval :: LamExpr -> LamExpr
 leftEval v@LamVar{} = v
 leftEval (LamAbs x e) = LamAbs x (leftEval e)
-leftEval (LamApp (LamAbs x e1) e2) = reduce e1 x e2
+leftEval (LamApp (LamAbs x e1) e2) = subst e1 x e2
 leftEval (LamApp e1 e2) = LamApp (leftEval e1) e2
 leftEval (LamMacro e) = LamMacro e
 
+-- Check if an expression is free
 checkFree :: LamExpr -> Int -> Bool
 checkFree (LamVar x) y = x == y
 checkFree (LamAbs x e) y | x == y = False 
                          | otherwise = checkFree e y
 checkFree (LamApp e1 e2) x = checkFree e1 x || checkFree e2 x
 
-reduce :: LamExpr -> Int -> LamExpr -> LamExpr
-reduce (LamVar x) y e    | x == y = e
-reduce (LamVar x) y _    | x /= y = LamVar x
-reduce (LamAbs x e1) y e | x /= y && not (checkFree e x) = LamAbs x (reduce e1 x e)
-reduce (LamAbs x e1) y e | x /= y && checkFree e x = let c = rename x e1 in 
-                                                         reduce (LamAbs c (reduce e1 x (LamVar c))) y e 
-reduce (LamAbs x e1) y _ | x == y = LamAbs x e1
-reduce (LamApp e1 e2) y e = LamApp (reduce e1 y e) (reduce e2 y e)
+-- Perform beta reduction with alpha conversion when needed
+subst :: LamExpr -> Int -> LamExpr -> LamExpr
+subst (LamVar x) y e    | x == y = e
+subst (LamVar x) y _    | x /= y = LamVar x
+subst (LamAbs x e1) y e | x /= y && not (checkFree e x) = LamAbs x (subst e1 x e)
+subst (LamAbs x e1) y e | x /= y && checkFree e x = let c = rename x e1 in 
+                                                         subst (LamAbs c (subst e1 x (LamVar c))) y e 
+subst (LamAbs x e1) y _ | x == y = LamAbs x e1
+subst (LamApp e1 e2) y e = LamApp (subst e1 y e) (subst e2 y e)
 
 rename :: Int -> LamExpr -> Int
 rename x e | checkFree e (x + 100) = rename (x + 100) e
            | otherwise = x + 100
 
+-- count the number of reduction performed on a LamExpr
 countReductions :: (LamExpr -> LamExpr) -> LamExpr -> Int -> Int -> Maybe Int
 countReductions method startExpr bound count = let currentExpr = method startExpr in                                                    
                                                           if count >= bound && startExpr /= currentExpr then Nothing
