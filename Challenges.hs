@@ -1,8 +1,7 @@
 {-# LANGUAGE DeriveGeneric #-}
+-- Author: Harry Corbett, hc3g19
 -- comp2209 Functional Programming Challenges
 -- (c) University of Southampton 2020
--- Skeleton code to be updated with your solutions
--- The dummy functions here simply return an arbitrary value that is usually wrong 
 
 -- DO NOT MODIFY THE FOLLOWING LINES OF CODE
 module Challenges (WordSearchGrid,Placement,Posn,Orientation(..),solveWordSearch, createWordSearch,
@@ -23,21 +22,26 @@ import Data.Maybe
 import Data.Function
 import Data.Functor
 
+instance NFData Orientation
+instance NFData LamMacroExpr
+instance NFData LamExpr
 
 -- types for Part I
 type WordSearchGrid = [[ Char ]]
 type Placement = (Posn,Orientation)
 type Posn = (Int,Int)
-data Orientation = Forward | Back | Up | Down | UpForward | UpBack | DownForward | DownBack deriving (Eq,Ord,Show,Read)
+data Orientation = Forward | Back | Up | Down | UpForward | UpBack | DownForward | DownBack deriving (Eq,Ord,Show,Read,Generic)
 
 -- types for Parts II and III
-data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read)
+data LamMacroExpr = LamDef [ (String,LamExpr) ] LamExpr deriving (Eq,Show,Read,Generic)
 data LamExpr = LamMacro String | LamApp LamExpr LamExpr  |
-               LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read)
+               LamAbs Int LamExpr  | LamVar Int deriving (Eq,Show,Read,Generic)
 
 -- END OF CODE YOU MUST NOT MODIFY
 
+
 -- ADD YOUR OWN CODE HERE
+
 
 -- Challenge 1 --
 
@@ -107,17 +111,20 @@ removeNothingForFoundWord :: String -> [(String,Maybe Placement)] -> [(String,Ma
 removeNothingForFoundWord string xs | null [ x | x <- xs , isJust (snd x) ] = [(string,Nothing)]
                                     | otherwise = [ x | x <- xs , isJust (snd x) ]
 
+-- Start of code adapted from StackExchange answer by user mjolka - https://codereview.stackexchange.com/questions/58954/getting-the-index-x-y-of-a-char-in-a-2d-list-in-haskell
+
 --Search for a string at all posiitons that contain the strings starting character
 searchForWord :: String -> WordSearchGrid -> [(String,Maybe Placement)]
 searchForWord [] _        = []
 searchForWord string grid = removeNothingForFoundWord string [ searchForWordAtPosition string grid z | z <- [ (x,y) | (y,line) <- zip [0..] grid, x <- elemIndices (head string) line ] ]
+
+-- End of code adapted from StackExchange answer by user mjolka - https://codereview.stackexchange.com/questions/58954/getting-the-index-x-y-of-a-char-in-a-2d-list-in-haskell
 
 --Recursively call the search for each word and collect the results into a list
 solveWordSearch :: [ String ] -> WordSearchGrid -> [ (String,Maybe Placement) ]
 solveWordSearch _ [[]]      = error "given grid is empty"
 solveWordSearch [] _        = []
 solveWordSearch (x:xs) grid = searchForWord x grid ++ solveWordSearch xs grid
-
 
 -- Two examples for you to try out, the first of which is in the instructions
 
@@ -143,7 +150,7 @@ getCharacterList xs = map toUpper (removeDuplicates (intercalate "" xs ) [])
 
 --Calculate the size of the grid based on the given density
 calculateGridSize :: Integral b => [String] -> Double -> b
-calculateGridSize strings density = floor(sqrt (fromIntegral (length (intercalate "" strings)) / density))
+calculateGridSize strings density = ceiling(sqrt (fromIntegral (length (intercalate "" strings)) / density))
 
 --Choose a random value from the given list
 chooseRandomFromList :: [a] -> IO a
@@ -152,6 +159,8 @@ chooseRandomFromList xs = (xs !!) <$> randomRIO (0, length xs - 1)
 -- Create a grid of consisting of only '-' of size n x n
 makeEmptyGrid :: Int -> WordSearchGrid
 makeEmptyGrid n = replicate n (replicate n '-')
+
+-- Start of code adapted from Haskword - https://github.com/polymerwitch/Haskword
 
 --Insert a single word at random position in a random orientation
 --If the position/orientation cannot fit the word, keep calling the function until a valid position/orientation is found
@@ -237,6 +246,8 @@ checkBackDown grid word (col,row) = checkForwardUp grid (reverse word) (col,row)
 insertBackDown :: WordSearchGrid -> String -> Posn -> WordSearchGrid
 insertBackDown grid word (col,row) = insertForwardUp grid (reverse word) (col,row)
 
+-- End of code adapted from Haskword - https://github.com/polymerwitch/Haskword
+
 --Finds the longest of the geiven words and returns its length
 --Used to check that the given density makes a big enough grid for the longest word to fit in
 longestStringLen :: [String] -> Int
@@ -254,7 +265,7 @@ replaceTempChars chars words [] grid = return grid
 replaceTempChars chars words (x:xs) grid = do randomChar <- chooseRandomFromList chars
                                               newGrid <- setCharAtPos x randomChar grid
                                               if isValidCharacter words newGrid x then replaceTempChars chars words xs newGrid
-                                                else replaceTempChars chars words (x:xs) newGrid
+                                                else replaceTempChars chars words (x:xs) grid
 
 setCharInList :: Int -> a -> [a] -> [a]
 setCharInList n x xs = take n xs ++ (x : drop (n+1) xs)
@@ -262,28 +273,34 @@ setCharInList n x xs = take n xs ++ (x : drop (n+1) xs)
 setCharAtPos :: (Int, Int) -> Char -> WordSearchGrid -> IO WordSearchGrid
 setCharAtPos (m,n) x xs = return (setCharInList n (setCharInList m x $ xs!!n) xs)
 
+-- Start of code adapted from StackExchange answer by user mjolka - https://codereview.stackexchange.com/questions/58954/getting-the-index-x-y-of-a-char-in-a-2d-list-in-haskell
+
 findTempChars :: WordSearchGrid -> [(Int, Int)]
 findTempChars grid = [ (x,y) | (y,line) <- zip [0..] grid, x <- elemIndices '-' line ]
 
---Overarching function to create the word search and catch any issues with the given density for the given words
+-- End of code adapted from StackExchange answer by user mjolka - https://codereview.stackexchange.com/questions/58954/getting-the-index-x-y-of-a-char-in-a-2d-list-in-haskell
+
+--Overarching function to create the word search
 createWordSearch :: [ String ] -> Double -> IO WordSearchGrid
 createWordSearch [] _ = error "No Strings given"
 createWordSearch _ x             | x < 0 || x > 1 = error "Given density is not between 0 and 1"
-createWordSearch strings density | calculateGridSize strings density < longestStringLen strings = error "Given density cannot produce a large enough grid for the given strings"
-                                 | otherwise = do wordGrid <- insertWords (makeEmptyGrid (calculateGridSize strings density)) strings
-                                                  replaceTempChars (getCharacterList strings) strings (findTempChars wordGrid) wordGrid
+createWordSearch strings density = let gridSize = max(calculateGridSize strings density) (longestStringLen strings)in
+                                       do wordGrid <- insertWords (makeEmptyGrid gridSize) strings
+                                          replaceTempChars (getCharacterList strings) strings (findTempChars wordGrid) wordGrid
 
 --- Convenience functions supplied for testing purposes
 createAndSolve :: [ String ] -> Double -> IO [ (String, Maybe Placement) ]
-createAndSolve words maxDensity = do g <- createWordSearch words maxDensity
-                                     let soln = solveWordSearch words g
-                                     printGrid g
-                                     return soln
+createAndSolve words maxDensity =   do g <- createWordSearch words maxDensity
+                                       let soln = solveWordSearch words g
+                                       printGrid g
+                                       return soln
 
 printGrid :: WordSearchGrid -> IO ()
 printGrid [] = return ()
 printGrid (w:ws) = do putStrLn w
                       printGrid ws
+
+
 
 -- Challenge 3 --
 
@@ -329,14 +346,16 @@ prettyPrintApp exp1@LamAbs{} exp2           = "(" ++ prettyPrintLam exp1 ++ ") "
 prettyPrintApp exp1 exp2@LamApp{}           = prettyPrintLam exp1 ++ " (" ++ prettyPrintLam exp2 ++ ")"
 prettyPrintApp exp1 exp2                    = prettyPrintLam exp1 ++ " " ++ prettyPrintLam exp2
 
+
 -- examples in the instructions
---ex3'1 = (LamDef [] (LamApp (LamAbs 1 (LamVar 1)) (LamAbs 1 (LamVar 1)))) --> "(\x1 -> x1) \x1 -> x1" 
---ex3'2 = (LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))) --> "\x1 -> x1 \x1 -> x1"
---ex3'3 = (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))) --> "def F = \x1 -> x1 in \x2 -> x2 F"
---ex3'4 = (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))) --> def F = \x1-> x1 in \x2 -> F x2"
+ex3'1 = LamDef [] (LamApp (LamAbs 1 (LamVar 1)) (LamAbs 1 (LamVar 1)))
+ex3'2 = LamDef [] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))
+ex3'3 = LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))
+ex3'4 = LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2))) 
+
 
 -- Challenge 4 --
---Parse the LamMacroExpr
+
 parseLamMacro :: String -> Maybe LamMacroExpr
 parseLamMacro string = case parse lamMacroExpr string of
                           [(a,"")] -> Just a
@@ -455,6 +474,7 @@ upperChar = sat isUpper
 
 
 -- Challenge 5
+
 cpsTransform :: LamMacroExpr -> LamMacroExpr
 cpsTransform (LamDef [] expr) = LamDef [] (cpsTransformExpr expr (nextNumLam expr 1 +1))
 cpsTransform (LamDef xs expr) = let transformedList = cpsTransformMacros xs (nextNumMacro (LamDef xs expr) 1) in
@@ -497,14 +517,15 @@ cpsTransformExpr (LamVar x) i     = LamAbs i (LamApp (LamVar i) (LamVar x))
 cpsTransformExpr (LamMacro s) i   = LamMacro s
 
 -- Examples in the instructions
-exId =  LamAbs 1 (LamVar 1)
+exId =  (LamAbs 1 (LamVar 1))
 ex5'1 = (LamApp (LamVar 1) (LamVar 2))
 ex5'2 = (LamDef [ ("F", exId) ] (LamVar 2) )
 ex5'3 = (LamDef [ ("F", exId) ] (LamMacro "F") )
 ex5'4 = (LamDef [ ("F", exId) ] (LamApp (LamMacro "F") (LamMacro "F")))
 
 
--- Challenge 6
+-- Challenge 6 - Not complete
+
 -- Extract expressions from maybe expression
 convert :: Maybe LamExpr -> LamExpr
 convert (Just expr) = expr
@@ -586,8 +607,7 @@ outerRedn1 :: LamMacroExpr -> Maybe LamMacroExpr
 outerRedn1 _ = Nothing
 
 compareInnerOuter :: LamMacroExpr -> Int -> (Maybe Int,Maybe Int,Maybe Int,Maybe Int)
-compareInnerOuter expr limit = (Nothing, Nothing, Nothing, Nothing) 
-
+compareInnerOuter _ _ = (Nothing,Nothing,Nothing,Nothing) 
 
 -- Examples in the instructions
 
@@ -610,5 +630,5 @@ ex6'5 = LamDef [ ("ID",exId) , ("FST",LamAbs 1 (LamAbs 2 (LamVar 1))) ] ( LamApp
 --  def FST = (\x1 -> λx2 -> x1) in FST x3 ((\x1 ->x1) x4))   
 ex6'6 = LamDef [ ("FST", LamAbs 1 (LamAbs 2 (LamVar 1)) ) ]  ( LamApp (LamApp (LamMacro "FST") (LamVar 3)) (LamApp (exId) (LamVar 4)))
 
--- def ID = \x1 -> x1 in def SND = (\x1 -> λx2 -> x2) in SND ((\x1 -> x1) (\x2 -> x2)) ID
+-- def ID = \x1 -> x1 in def SND = (\x1 -> λx2 -> x2) in SND ((\x1 -> x1 x1) (\x1 -> x1 x1)) ID
 ex6'7 = LamDef [ ("ID",exId) , ("SND",LamAbs 1 (LamAbs 2 (LamVar 2))) ]  (LamApp (LamApp (LamMacro "SND") (LamApp wExp wExp) ) (LamMacro "ID") ) 

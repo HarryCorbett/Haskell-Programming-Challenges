@@ -14,7 +14,10 @@ tests =
         equalChecker (solveWordSearch c1Words2 c1Grid2) c1Solution2),
 
         ("Test 3: Check that given no words to find in a grid, the empty list is returned",
-        equalChecker (solveWordSearch [] c1Grid1) [])
+        equalChecker (solveWordSearch [] c1Grid1) []),
+
+        ("Test 4: Looking for CAT, DOG, FISH, MAIN in a grid that does not contain all of the words",
+        equalChecker (solveWordSearch ["CAT", "DOG", "FISH", "MAIN"] c1Grid1) c1Solution4)
         ]
     ),
 
@@ -34,7 +37,10 @@ tests =
         equalChecker (prettyPrint (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamVar 2) (LamMacro "F")))) ) "def F = \\x1 -> x1 in \\x2 -> x2 F"),
 
         ("Test 4: Check 'LamDef [ (\"F\", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))' pretty prints to 'def F = \\x1 -> x1 in \\x2 -> F x2' ",
-        equalChecker (prettyPrint (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))) ) "def F = \\x1 -> x1 in \\x2 -> F x2")
+        equalChecker (prettyPrint (LamDef [ ("F", LamAbs 1 (LamVar 1) ) ] (LamAbs 2 (LamApp (LamAbs 1 (LamVar 1)) (LamVar 2)))) ) "def F = \\x1 -> x1 in \\x2 -> F x2"),
+
+        ("Test 5: Check 'LamDef [ (\"F\", LamAbs 1 (LamVar 1) ), (\"G\", LamAbs 2 (LamVar 2)) ] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))' pretty prints to 'def F = \\x1 -> x1 in def G = \\x2 -> x2 in \\x1 -> x1 F' ",
+        equalChecker (prettyPrint (LamDef [ ("F", LamAbs 1 (LamVar 1) ), ("G", LamAbs 2 (LamVar 2)) ] (LamAbs 1 (LamApp (LamVar 1) (LamAbs 1 (LamVar 1))))) ) "def F = \\x1 -> x1 in def G = \\x2 -> x2 in \\x1 -> x1 F")
         ]
     ),
 
@@ -56,7 +62,10 @@ tests =
         equalChecker (parseLamMacro "def F = \\x1 -> x1 in def F = \\x2 -> x2 x1 in x1") Nothing ),
 
         ("Test 6: Check parsing the expression 'def F = x1 in F' returns 'Nothing' ",
-        equalChecker (parseLamMacro "def F = x1 in F") Nothing )
+        equalChecker (parseLamMacro "def F = x1 in F") Nothing ),
+
+        ("Test 7: Check parsing an empty expression '' returns 'Nothing' ",
+        equalChecker (parseLamMacro "") Nothing )
         ]
     ),
 
@@ -66,13 +75,16 @@ tests =
         equalChecker (cpsTransform (LamDef [] ex5'1)) (LamDef [] (LamAbs 3 (LamApp (LamAbs 6 (LamApp (LamVar 6) (LamVar 1))) (LamAbs 4 (LamApp (LamAbs 7 (LamApp (LamVar 7) (LamVar 2))) (LamAbs 5 (LamApp (LamApp (LamVar 4) (LamVar 5)) (LamVar 3)))))))) ),
 
         ("Test 2: Check converting 'LamDef [ (\"F\", LamAbs 1 (LamVar 1)) ] (LamVar 2)' returns a correct CPS expression",
-        equalChecker (cpsTransform (ex5'2)) (LamDef [("F",LamAbs 3 (LamApp (LamVar 3) (LamAbs 1 (LamAbs 4 (LamApp (LamVar 4) (LamVar 1))))))] (LamAbs 5 (LamApp (LamVar 5) (LamVar 2)))) ),
+        equalChecker (cpsTransform ex5'2) (LamDef [("F",LamAbs 3 (LamApp (LamVar 3) (LamAbs 1 (LamAbs 4 (LamApp (LamVar 4) (LamVar 1))))))] (LamAbs 5 (LamApp (LamVar 5) (LamVar 2)))) ),
 
         ("Test 3: Check converting 'LamDef [ (\"F\", LamAbs 1 (LamVar 1)) ] (LamMacro \"F\")' returns a correct CPS expression",
-        equalChecker (cpsTransform (ex5'3)) (LamDef [("F", LamAbs 2 (LamApp (LamVar 2) (LamAbs 1 (LamAbs 3 (LamApp (LamVar 3) (LamVar 1))))))] (LamMacro "F") )),
+        equalChecker (cpsTransform ex5'3) (LamDef [("F", LamAbs 2 (LamApp (LamVar 2) (LamAbs 1 (LamAbs 3 (LamApp (LamVar 3) (LamVar 1))))))] (LamMacro "F") )),
 
         ("Test 4: Check converting 'LamDef [ (\"F\", LamAbs 1 (LamVar 1)) ] (LamApp (LamMacro \"F\") (LamMacro \"F\"))' returns a correct CPS expression",
-        equalChecker (cpsTransform (ex5'4)) (LamDef [("F", LamAbs 2 (LamApp (LamVar 2) (LamAbs 1 (LamAbs 3 (LamApp (LamVar 3) (LamVar 1))))))] (LamAbs 4 (LamApp (LamMacro "F") (LamAbs 5 (LamApp (LamMacro "F") (LamAbs 6 (LamApp (LamApp (LamVar 5) (LamVar 6)) (LamVar 4)))))))) )
+        equalChecker (cpsTransform ex5'4) (LamDef [("F", LamAbs 2 (LamApp (LamVar 2) (LamAbs 1 (LamAbs 3 (LamApp (LamVar 3) (LamVar 1))))))] (LamAbs 4 (LamApp (LamMacro "F") (LamAbs 5 (LamApp (LamMacro "F") (LamAbs 6 (LamApp (LamApp (LamVar 5) (LamVar 6)) (LamVar 4)))))))) ),
+
+        ("Test 5: Check converting 'LamDef [ (\"F\", LamAbs 1 (LamVar 1)), (\"G\", LamAbs 2 (LamVar 2))  ] (LamVar 3)' returns a correct CPS expression",
+        equalChecker (cpsTransform (LamDef [ ("F", LamAbs 1 (LamVar 1)), ("G", LamAbs 2 (LamVar 2)) ] (LamVar 3))) (LamDef [("F",LamAbs 4 (LamApp (LamVar 4) (LamAbs 1 (LamAbs 5 (LamApp (LamVar 5) (LamVar 1)))))),("G",LamAbs 6 (LamApp (LamVar 6) (LamAbs 2 (LamAbs 7 (LamApp (LamVar 7) (LamVar 2))))))] (LamAbs 8 (LamApp (LamVar 8) (LamVar 3)))) )
         ]
     ),
 
@@ -94,6 +106,7 @@ chal2Tests =
         ("Test 2: Generate and solve a very large grid containing the words ALDER, COTTONWOOD, PINE, APPLE, CYPRESS, POPLAR, ASH and ensure it contains each of them exactly once",
         ["ALDER", "COTTONWOOD", "PINE", "APPLE","CYPRESS","POPLAR","ASH"],
         0.01)
+
     ]
 
 main :: IO ()
@@ -101,7 +114,6 @@ main = do putStrLn ""
           testEachChallenge tests
           putStrLn "-- Challenge 2 --"
           testChallenge2 chal2Tests
-
 
 testEachChallenge :: [(String, [(String,Bool)])] -> IO ()
 testEachChallenge [] = putStr "" 
@@ -130,7 +142,6 @@ testChallenge2 (( message, words, density) : ts) = do result <- createAndSolveCh
                                                       putStrLn message
                                                       testChallenge2 ts
                                                       
-
 -- Generic checker for equal values
 equalChecker x y = x == y
 
@@ -148,6 +159,7 @@ createAndSolveCheck words maxDensity = do g <- createWordSearch words maxDensity
                                               if b then return "Test Passed: "
                                                 else return "Test failed: "
 
+
 -- Challenge 1 test varialbes
 c1Grid1 = [ "HAGNIRTSH" , "SACAGETAK", "GCSTACKEL","MGHKMILKI","EKNLETGCN","TNIRTLETE","IRAAHCLSR","MAMROSAGD","GIZKDDNRG" ] 
 c1Words1 = [ "HASKELL","STRING","STACK","MAIN","METHOD"]
@@ -156,6 +168,7 @@ c1Solution1 = [("HASKELL",Just((0,0),DownForward)),("STRING",Just((7,0),Back)),(
 c1Grid2 = ["ROBREUMBR","AURPEPSAN","UNLALMSEE","YGAUNPYYP","NLMNBGENA","NBLEALEOR","ALRYPBBLG","NREPBEBEP","YGAYAROMR"]
 c1Words2 = [ "BANANA", "ORANGE", "MELON", "RASPBERRY","APPLE","PLUM","GRAPE" ]
 c1Solution2 = [("BANANA",Just ((5,6),UpBack)),("ORANGE",Just ((1,0),DownForward)),("MELON",Just ((7,8),Up)),("RASPBERRY",Just ((8,0),DownBack)),("APPLE",Just ((2,8),UpForward)),("PLUM",Just ((5,1),DownBack)),("GRAPE",Just ((8,6),Up))]
+c1Solution4 = [("CAT",Just ((5,2),Back)),("DOG",Nothing),("FISH",Nothing),("MAIN",Just ((2,7),Up))]
 
 -- Challenge 2 variables
 c2Words1 = [ "HELLO" , "WORLD" , "HASKELL" , "PUZZLE"]
